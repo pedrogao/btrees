@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func verifyTree(b *BTree, count int, t *testing.T) {
+func verifyTree(b *BPTree, count int, t *testing.T) {
 	verifyRoot(b, t)
 
 	for i := 0; i < b.root.(*internalNode).count; i++ {
@@ -21,7 +21,7 @@ func verifyTree(b *BTree, count int, t *testing.T) {
 
 // min child: 1
 // max child: MaxKC
-func verifyRoot(b *BTree, t *testing.T) {
+func verifyRoot(b *BPTree, t *testing.T) {
 	if b.Empty() {
 		t.Logf("empty tree")
 		return
@@ -34,7 +34,7 @@ func verifyRoot(b *BTree, t *testing.T) {
 		t.Errorf("root.min.child: want >=1, got = %d", b.root.(*internalNode).count)
 	}
 
-	if b.root.getSize() > b.root.getMax() {
+	if b.root.getSize() > b.root.getMaxSize() {
 		t.Errorf("root.max.child: want <= %d, got = %d", b.root.(*internalNode).max, b.root.(*internalNode).count)
 	}
 }
@@ -46,7 +46,7 @@ func verifyNode(n node, parent *internalNode, t *testing.T) {
 			t.Errorf("internal.min.child: want >= %d, got = %d", nn.max/2, nn.count)
 		}
 
-		if nn.getSize() > nn.getMax() {
+		if nn.getSize() > nn.getMaxSize() {
 			t.Errorf("internal.max.child: want <= %d, got = %d", nn.max, nn.count)
 		}
 
@@ -72,7 +72,7 @@ func verifyNode(n node, parent *internalNode, t *testing.T) {
 			t.Errorf("leaf.min.child: want >= %d, got = %d", nn.max/2, nn.count)
 		}
 
-		if nn.getSize() > nn.getMax() {
+		if nn.getSize() > nn.getMaxSize() {
 			t.Errorf("leaf.max.child: want <= %d, got = %d", nn.max, nn.count)
 		}
 
@@ -122,7 +122,7 @@ func findLeftMost(n node) *leafNode {
 
 func TestBTree_Insert1(t1 *testing.T) {
 	keys := []int{1, 5, 12, 18, 21, 22, 23}
-	bt := NewBTree(MaxInternal(3), MaxLeaf(3))
+	bt := NewBPTree(MaxInternal(3), MaxLeaf(3))
 
 	for _, key := range keys {
 		bt.Insert(key, fmt.Sprintf("%d", key))
@@ -132,7 +132,7 @@ func TestBTree_Insert1(t1 *testing.T) {
 
 func TestBTree_Insert2(t1 *testing.T) {
 	keys := []int{1, 5, 12, 18, 21, 22, 23}
-	bt := NewBTree(MaxInternal(6), MaxLeaf(6))
+	bt := NewBPTree(MaxInternal(6), MaxLeaf(6))
 
 	for _, key := range keys {
 		bt.Insert(key, fmt.Sprintf("%d", key))
@@ -142,7 +142,7 @@ func TestBTree_Insert2(t1 *testing.T) {
 
 func TestBTree_Search1(t1 *testing.T) {
 	assert := assert.New(t1)
-	bt := NewBTree(MaxInternal(10), MaxLeaf(10))
+	bt := NewBPTree(MaxInternal(10), MaxLeaf(10))
 	count := 1000
 
 	for i := 1; i <= count; i++ {
@@ -162,7 +162,7 @@ func TestBTree_Search1(t1 *testing.T) {
 
 func TestBTree_Search2(t1 *testing.T) {
 	assert := assert.New(t1)
-	bt := NewBTree()
+	bt := NewBPTree()
 	count := 100000
 
 	for i := 1; i <= count; i++ {
@@ -179,7 +179,7 @@ func TestBTree_Search2(t1 *testing.T) {
 
 func TestBTree_Search3(t1 *testing.T) {
 	assert := assert.New(t1)
-	bt := NewBTree()
+	bt := NewBPTree()
 	count := 100000
 
 	for i := 1; i <= count; i++ {
@@ -205,7 +205,7 @@ func TestBTree_Search3(t1 *testing.T) {
 
 func TestBTree_Delete2(t1 *testing.T) {
 	//assert := assert.New(t1)
-	bt := NewBTree(MaxInternal(10), MaxLeaf(10))
+	bt := NewBPTree(MaxInternal(10), MaxLeaf(10))
 	count := 100
 
 	for i := 1; i <= count; i++ {
@@ -224,7 +224,7 @@ func TestBTree_Delete2(t1 *testing.T) {
 
 func TestBTree_Delete1(t *testing.T) {
 	keys := []int{1, 5, 12, 18, 21, 22, 23}
-	bt := NewBTree(MaxInternal(6), MaxLeaf(6))
+	bt := NewBPTree(MaxInternal(6), MaxLeaf(6))
 
 	for _, key := range keys {
 		bt.Insert(key, fmt.Sprintf("%d", key))

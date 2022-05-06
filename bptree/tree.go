@@ -6,28 +6,29 @@ import (
 	"strconv"
 )
 
-type BTree struct {
+// BPTree b+ tree
+type BPTree struct {
 	root        node
 	maxLeaf     int
 	maxInternal int
 }
 
-type Option func(tree *BTree)
+type Option func(tree *BPTree)
 
 func MaxLeaf(max int) Option {
-	return func(tree *BTree) {
+	return func(tree *BPTree) {
 		tree.maxLeaf = max
 	}
 }
 
 func MaxInternal(max int) Option {
-	return func(tree *BTree) {
+	return func(tree *BPTree) {
 		tree.maxInternal = max
 	}
 }
 
-func NewBTree(options ...Option) *BTree {
-	b := &BTree{}
+func NewBPTree(options ...Option) *BPTree {
+	b := &BPTree{}
 	for _, option := range options {
 		option(b)
 	}
@@ -41,7 +42,7 @@ func NewBTree(options ...Option) *BTree {
 }
 
 // First returns the first leafNode
-func (t *BTree) First() *leafNode {
+func (t *BPTree) First() *leafNode {
 	var (
 		tmp   = t.root
 		inter *internalNode
@@ -61,8 +62,23 @@ func (t *BTree) First() *leafNode {
 	return tmp.(*leafNode)
 }
 
+func (t *BPTree) Empty() bool {
+	return t.root == nil
+}
+
+// Insert key->value
+func (t *BPTree) Insert(key int, value string) {
+	// 如果是空树，那么新建 root 节点
+	if t.root == nil {
+		t.startRoot(key, value)
+		return
+	}
+	// 非空，插入至叶子节点
+	t.insertIntoLeaf(key, value)
+}
+
 // Delete key
-func (t *BTree) Delete(key int) {
+func (t *BPTree) Delete(key int) {
 	if t.Empty() {
 		return
 	}
@@ -77,7 +93,28 @@ func (t *BTree) Delete(key int) {
 	t.coalesceOrRedistribute(leaf)
 }
 
-func (t *BTree) coalesceOrRedistribute(n node) {
+// Search searches the key in B+ tree
+// If the key exists, it returns the value of key and true
+// If the key does not exist, it returns an empty string and false
+func (t *BPTree) Search(key int) (string, bool) {
+	if t.Empty() {
+		return "", false
+	}
+
+	leaf := t.findLeaf(key)
+	if leaf == nil {
+		return "", false
+	}
+
+	idx, b := leaf.find(key)
+	if !b {
+		return "", false
+	}
+
+	return leaf.kvs[idx].value, true
+}
+
+func (t *BPTree) coalesceOrRedistribute(n node) {
 	if n.isRoot() {
 		t.adjustRoot(n)
 		return
@@ -98,7 +135,7 @@ func (t *BTree) coalesceOrRedistribute(n node) {
 		sibling = parent.kcs[idx-1].child
 	}
 	// 重组
-	if n.getSize()+sibling.getSize() >= n.getMax() {
+	if n.getSize()+sibling.getSize() >= n.getMaxSize() {
 		t.redistribute(sibling, n, parent, idx)
 		return
 	}
@@ -112,7 +149,7 @@ func (t *BTree) coalesceOrRedistribute(n node) {
 	}
 }
 
-func (t *BTree) redistribute(neighbor, n node,
+func (t *BPTree) redistribute(neighbor, n node,
 	parent *internalNode, index int) {
 	// 将 neighbor 末尾移到 node 的最前面
 	// 或者将 node 的开始项移到 neighbor 末尾
@@ -126,7 +163,7 @@ func (t *BTree) redistribute(neighbor, n node,
 	}
 }
 
-func (t *BTree) coalesce(neighbor, n node, parent *internalNode) {
+func (t *BPTree) coalesce(neighbor, n node, parent *internalNode) {
 	// 合并以后可能还需要合并或者重组
 	// n 所有项移动到 neighbor
 	n.moveAllTo(neighbor)
@@ -135,7 +172,7 @@ func (t *BTree) coalesce(neighbor, n node, parent *internalNode) {
 	t.coalesceOrRedistribute(parent)
 }
 
-func (t *BTree) adjustRoot(oldRoot node) {
+func (t *BPTree) adjustRoot(oldRoot node) {
 	// 根节点还不是最后一个节点，仍然是内部节点，且有一个孩子节点
 	if oldRoot.getSize() == 1 && !oldRoot.isLeaf() {
 		t.root = oldRoot.valueAt(0).(node)
@@ -147,22 +184,7 @@ func (t *BTree) adjustRoot(oldRoot node) {
 	}
 }
 
-func (t *BTree) Empty() bool {
-	return t.root == nil
-}
-
-// Insert key->value
-func (t *BTree) Insert(key int, value string) {
-	// 如果是空树，那么新建 root 节点
-	if t.root == nil {
-		t.startRoot(key, value)
-		return
-	}
-	// 非空，插入至叶子节点
-	t.insertIntoLeaf(key, value)
-}
-
-func (t *BTree) insertIntoLeaf(key int, value string) {
+func (t *BPTree) insertIntoLeaf(key int, value string) {
 	leaf := t.findLeaf(key)
 	if leaf == nil {
 		return
@@ -177,7 +199,7 @@ func (t *BTree) insertIntoLeaf(key int, value string) {
 	t.insertIntoParent(leaf, newNode, newNode.kvs[0].key)
 }
 
-func (t *BTree) insertIntoParent(old, new node, firstKey int) {
+func (t *BPTree) insertIntoParent(old, new node, firstKey int) {
 	if old.isRoot() {
 		// 新建 root，并替换 root
 		root := newInternalNode(nil, t.maxInternal)
@@ -198,7 +220,7 @@ func (t *BTree) insertIntoParent(old, new node, firstKey int) {
 	t.insertIntoParent(parent, parentSibling, midKey)
 }
 
-func (t *BTree) findLeaf(key int) *leafNode {
+func (t *BPTree) findLeaf(key int) *leafNode {
 	var (
 		tmp   = t.root
 		inter *internalNode
@@ -218,34 +240,13 @@ func (t *BTree) findLeaf(key int) *leafNode {
 	return tmp.(*leafNode)
 }
 
-func (t *BTree) startRoot(key int, value string) {
+func (t *BPTree) startRoot(key int, value string) {
 	n := newLeafNode(nil, t.maxLeaf)
 	n.insert(key, value)
 	t.root = n
 }
 
-// Search searches the key in B+ tree
-// If the key exists, it returns the value of key and true
-// If the key does not exist, it returns an empty string and false
-func (t *BTree) Search(key int) (string, bool) {
-	if t.Empty() {
-		return "", false
-	}
-
-	leaf := t.findLeaf(key)
-	if leaf == nil {
-		return "", false
-	}
-
-	idx, b := leaf.find(key)
-	if !b {
-		return "", false
-	}
-
-	return leaf.kvs[idx].value, true
-}
-
-func (t *BTree) printGraph() {
+func (t *BPTree) printGraph() {
 	fmt.Println("-----------------------------------")
 	cur := t.root
 	if cur == nil {
@@ -254,7 +255,7 @@ func (t *BTree) printGraph() {
 	t.printNode(cur)
 }
 
-func (t *BTree) Graph() string {
+func (t *BPTree) Graph() string {
 	cur := t.root
 	out := bytes.NewBufferString("")
 	out.WriteString("digraph G {\n")
@@ -263,7 +264,7 @@ func (t *BTree) Graph() string {
 	return out.String()
 }
 
-func (t *BTree) graph(cur node, out *bytes.Buffer) {
+func (t *BPTree) graph(cur node, out *bytes.Buffer) {
 	leafPrefix, internalPrefix := "LEAF_", "INT_"
 	switch n := cur.(type) {
 	case *leafNode:
@@ -280,9 +281,9 @@ func (t *BTree) graph(cur node, out *bytes.Buffer) {
 		out.WriteString(strconv.Itoa(n.getSize()))
 		out.WriteString("\">")
 		out.WriteString("max_size=")
-		out.WriteString(strconv.Itoa(n.getMax()))
+		out.WriteString(strconv.Itoa(n.getMaxSize()))
 		out.WriteString(",min_size=")
-		out.WriteString(strconv.Itoa(n.getMid()))
+		out.WriteString(strconv.Itoa(n.getMinSize()))
 		out.WriteString("</TD></TR>\n")
 		out.WriteString("<TR>")
 
@@ -330,9 +331,9 @@ func (t *BTree) graph(cur node, out *bytes.Buffer) {
 		out.WriteString(strconv.Itoa(n.getSize()))
 		out.WriteString("\">")
 		out.WriteString("max_size=")
-		out.WriteString(strconv.Itoa(n.getMax()))
+		out.WriteString(strconv.Itoa(n.getMaxSize()))
 		out.WriteString(",min_size=")
-		out.WriteString(strconv.Itoa(n.getMax() / 2))
+		out.WriteString(strconv.Itoa(n.getMaxSize() / 2))
 		out.WriteString("</TD></TR>\n")
 		out.WriteString("<TR>")
 
@@ -378,7 +379,7 @@ func (t *BTree) graph(cur node, out *bytes.Buffer) {
 	}
 }
 
-func (t *BTree) printTree() {
+func (t *BPTree) printTree() {
 	fmt.Println("-----------------------------------")
 	cur := t.root
 	if cur == nil {
@@ -387,7 +388,7 @@ func (t *BTree) printTree() {
 	t.printNode(cur)
 }
 
-func (t *BTree) printNode(cur node) {
+func (t *BPTree) printNode(cur node) {
 	switch n := cur.(type) {
 	case *leafNode:
 		fmt.Printf("- leaf %s (size %d)\n", n.id(), n.count)

@@ -96,8 +96,8 @@ func Test_leafNode_full(t *testing.T) {
 	assert.Equal(n.full(), false)
 	n.count = 3
 	assert.Equal(n.full(), true)
-	assert.Equal(n.getMax(), 3)
-	assert.Equal(n.getMid(), 1)
+	assert.Equal(n.getMaxSize(), 3)
+	assert.Equal(n.getMinSize(), 1)
 	assert.Equal(n.getSize(), 3)
 	assert.Equal(n.isLeaf(), true)
 	n.resize(-1)

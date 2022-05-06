@@ -137,8 +137,12 @@ func (n *internalNode) split() (*internalNode, int) {
 	return next, midKey
 }
 
-func (n *internalNode) getMax() int {
+func (n *internalNode) getMaxSize() int {
 	return n.max
+}
+
+func (n *internalNode) getMinSize() int {
+	return n.max / 2
 }
 
 func (n *internalNode) isRoot() bool {

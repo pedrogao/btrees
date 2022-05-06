@@ -63,7 +63,7 @@ func Test_internalNode_full(t *testing.T) {
 	assert.Equal(n.full(), false)
 	n.count = 3
 	assert.Equal(n.full(), true)
-	assert.Equal(n.getMax(), 3)
+	assert.Equal(n.getMaxSize(), 3)
 	assert.Equal(n.getSize(), 3)
 	assert.Equal(n.isLeaf(), false)
 	n.resize(-1)

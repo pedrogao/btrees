@@ -73,7 +73,7 @@ func (l *leafNode) insert(key int, value string) {
 func (l *leafNode) split() *leafNode {
 	next := newLeafNode(nil, l.max)
 
-	mid := l.getMid()
+	mid := l.getMinSize()
 	copy(next.kvs, l.kvs[mid:])
 
 	next.count = l.max - mid
@@ -93,11 +93,11 @@ func (l *leafNode) parent() *internalNode { return l.p }
 
 func (l *leafNode) setParent(p *internalNode) { l.p = p }
 
-func (l *leafNode) getMax() int {
+func (l *leafNode) getMaxSize() int {
 	return l.max
 }
 
-func (l *leafNode) getMid() int {
+func (l *leafNode) getMinSize() int {
 	return l.max / 2
 }
 

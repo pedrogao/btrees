@@ -7,12 +7,14 @@ const (
 
 // TODO disk
 type node interface {
+	// find return the index of element, and found or not
 	find(key int) (int, bool)
 	parent() *internalNode
 	setParent(*internalNode)
 	full() bool
 	halfFull() bool
-	getMax() int
+	getMaxSize() int
+	getMinSize() int
 	getSize() int
 	resize(int)
 	isRoot() bool
