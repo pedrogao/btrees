@@ -202,7 +202,7 @@ func (t *BPTree) insertIntoLeaf(key int, value string) {
 func (t *BPTree) insertIntoParent(old, new node, firstKey int) {
 	if old.isRoot() {
 		// 新建 root，并替换 root
-		root := newInternalNode(nil, t.maxInternal)
+		root := newInternalNode(t.maxInternal)
 		root.insert(0, old)
 		root.insert(firstKey, new)
 		t.root = root
@@ -241,7 +241,7 @@ func (t *BPTree) findLeaf(key int) *leafNode {
 }
 
 func (t *BPTree) startRoot(key int, value string) {
-	n := newLeafNode(nil, t.maxLeaf)
+	n := newLeafNode(t.maxLeaf)
 	n.insert(key, value)
 	t.root = n
 }

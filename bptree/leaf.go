@@ -30,11 +30,10 @@ type leafNode struct {
 	p          *internalNode // 父节点
 }
 
-func newLeafNode(p *internalNode, max int) *leafNode {
+func newLeafNode(max int) *leafNode {
 	return &leafNode{
 		kvs: make([]kv, max),
 		max: max,
-		p:   p,
 	}
 }
 
@@ -71,7 +70,7 @@ func (l *leafNode) insert(key int, value string) {
 }
 
 func (l *leafNode) split() *leafNode {
-	next := newLeafNode(nil, l.max)
+	next := newLeafNode(l.max)
 
 	mid := l.getMinSize()
 	copy(next.kvs, l.kvs[mid:])

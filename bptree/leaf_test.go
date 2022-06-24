@@ -9,7 +9,7 @@ import (
 func Test_leafNode_find(t *testing.T) {
 	assert := assert.New(t)
 
-	n := newLeafNode(nil, 2)
+	n := newLeafNode(2)
 	assert.Equal(n.kvs.Len(), 2)
 	found, ok := n.find(1)
 	assert.Equal(found, 0)
@@ -35,7 +35,7 @@ func Test_leafNode_find(t *testing.T) {
 func Test_leafNode_insert(t *testing.T) {
 	assert := assert.New(t)
 
-	n := newLeafNode(nil, 3)
+	n := newLeafNode(3)
 	assert.Equal(n.kvs.Len(), 3)
 	found, ok := n.find(1)
 	assert.Equal(found, 0)
@@ -52,7 +52,7 @@ func Test_leafNode_insert(t *testing.T) {
 func Test_leafNode_split(t *testing.T) {
 	assert := assert.New(t)
 
-	n := newLeafNode(nil, 4)
+	n := newLeafNode(4)
 	assert.Equal(n.kvs.Len(), 4)
 	n.kvs[0] = kv{
 		key:   1,
@@ -87,7 +87,7 @@ func Test_leafNode_split(t *testing.T) {
 func Test_leafNode_full(t *testing.T) {
 	assert := assert.New(t)
 
-	n := newLeafNode(nil, 3)
+	n := newLeafNode(3)
 	assert.Equal(n.kvs.Len(), 3)
 	n.count = 1
 	assert.Equal(n.halfFull(), true)
@@ -109,7 +109,7 @@ func Test_leafNode_full(t *testing.T) {
 func Test_leafNode_remove(t *testing.T) {
 	assert := assert.New(t)
 
-	n := newLeafNode(nil, 3)
+	n := newLeafNode(3)
 	assert.Equal(n.kvs.Len(), 3)
 	n.insert(5, "a")
 	n.insert(12, "b")
@@ -124,7 +124,7 @@ func Test_leafNode_remove(t *testing.T) {
 	assert.Equal(ok, false)
 
 	// n 5,12
-	other := newLeafNode(nil, 3)
+	other := newLeafNode(3)
 	assert.Equal(other.kvs.Len(), 3)
 	n.moveLastToFrontOf(other)
 	// n 5; other 12

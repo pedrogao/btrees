@@ -17,3 +17,6 @@
 - https://github.com/indutny/bplus
 - https://github.com/nimrodshn/btree
 - http://dreampuf.github.io/GraphvizOnline/#
+- https://en.wikipedia.org/wiki/B-tree
+- https://github.com/amit-davidson/btree
+- https://www.cs.usfca.edu/~galles/visualization/BTree.html

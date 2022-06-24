@@ -13,11 +13,11 @@ const mockNumberOfElements = 10
 
 func (n *Node) addChildNode(child *Node) *Node {
 	child.bucket = n.bucket
-	n.childNodes = append(n.childNodes, child)
+	n.children = append(n.children, child)
 	return n
 }
 
-func areTreesEqual(t *testing.T, t1, t2 *Tree) {
+func areTreesEqual(t *testing.T, t1, t2 *BTree) {
 	areTreesEqualHelper(t, t1.root, t2.root)
 }
 
@@ -30,16 +30,16 @@ func areNodesEqual(t *testing.T, n1, n2 *Node) {
 
 func areTreesEqualHelper(t *testing.T, n1, n2 *Node) {
 	require.Equal(t, len(n1.items), len(n2.items))
-	require.Equal(t, len(n1.childNodes), len(n2.childNodes))
+	require.Equal(t, len(n1.children), len(n2.children))
 
 	areNodesEqual(t, n1, n2)
-	// Exit condition: child node -> len(n1.childNodes) == 0
-	for i := 0; i < len(n1.childNodes); i++ {
-		areTreesEqualHelper(t, n1.childNodes[i], n2.childNodes[i])
+	// Exit condition: child node -> len(n1.children) == 0
+	for i := 0; i < len(n1.children); i++ {
+		areTreesEqualHelper(t, n1.children[i], n2.children[i])
 	}
 }
 
-func createTestMockTree() *Tree {
+func createTestMockTree() *BTree {
 	root := NewEmptyNode()
 	root.addItems("2", "5")
 
@@ -72,7 +72,7 @@ func Test_BucketAddSingle(t *testing.T) {
 
 	root := NewEmptyNode()
 	root.addItems("0")
-	expectedbucket := &Tree{root: root}
+	expectedbucket := &BTree{root: root}
 	areTreesEqual(t, expectedbucket, bucket)
 }
 
@@ -82,7 +82,7 @@ func Test_BucketRemoveFromRootSingleElement(t *testing.T) {
 	id := "0"
 	bucket.Put(id, value)
 
-	// Tree is balanced
+	// BTree is balanced
 	root := NewEmptyNode()
 	root.addItems("0")
 	expectedbucket := newTreeWithRoot(root, minItems)
@@ -101,7 +101,7 @@ func Test_BucketAddMultiple(t *testing.T) {
 		bucket.Put(istr, istr)
 	}
 
-	// Tree is balanced
+	// BTree is balanced
 	areTreesEqual(t, createTestMockTree(), bucket)
 }
 
@@ -136,7 +136,7 @@ func Test_BucketAddAndRebalanceSplit(t *testing.T) {
 	expectedchild2.addItems("8", "9")
 	expectedroot.addChildNode(expectedchild2)
 
-	// Tree is balanced
+	// BTree is balanced
 	areTreesEqual(t, expectedbucket, bucket)
 }
 
@@ -171,7 +171,7 @@ func Test_BucketSplitAndMerge(t *testing.T) {
 	expectedchild2.addItems("8", "9")
 	expectedroot.addChildNode(expectedchild2)
 
-	// Tree is balanced
+	// BTree is balanced
 	areTreesEqual(t, expectedbucket, bucket)
 
 	bucket.Remove("9")
@@ -199,7 +199,7 @@ func Test_BucketRemoveFromRootWithoutRebalance(t *testing.T) {
 		bucket.Put(istr, istr)
 	}
 
-	// Tree is balanced
+	// BTree is balanced
 	areTreesEqual(t, createTestMockTree(), bucket)
 
 	expectedroot := NewEmptyNode()

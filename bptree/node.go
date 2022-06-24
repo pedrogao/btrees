@@ -5,7 +5,6 @@ const (
 	MaxKC = 511
 )
 
-// TODO disk
 type node interface {
 	// find return the index of element, and found or not
 	find(key int) (int, bool)

@@ -42,10 +42,9 @@ type internalNode struct {
 	p          *internalNode // 父节点
 }
 
-func newInternalNode(p *internalNode, max int) *internalNode {
+func newInternalNode(max int) *internalNode {
 	// 但判断内部节点的标注仍以 key 为准，即以 key 作为 full，split 的标准
 	i := &internalNode{
-		p:     p,
 		max:   max,
 		count: 0,
 		kcs:   make([]kc, max),
@@ -125,7 +124,7 @@ func (n *internalNode) split() (*internalNode, int) {
 	midKey := n.kcs[midIndex].key
 
 	// create the split node without a parent
-	next := newInternalNode(nil, n.max)
+	next := newInternalNode(n.max)
 	copy(next.kcs, n.kcs[midIndex:])
 	next.count = n.count - midIndex
 	// update parent

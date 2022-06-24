@@ -22,6 +22,9 @@ const (
 
 /*
  * Common Node Header Layout
+ * 1. 节点类型，叶子节点、内部节点, uint8
+ * 2. 是否根节点，uint8
+ * 3. 父节点Id指针，uint32
  */
 var (
 	NodeTypeSize         = unsafe.Sizeof(uint8(0))

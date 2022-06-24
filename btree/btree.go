@@ -1,6 +1,6 @@
 package btree
 
-var DefaultMinItems = 128
+var DefaultMin = 128
 
 type Item struct {
 	key   string
@@ -8,15 +8,17 @@ type Item struct {
 }
 
 type Node struct {
-	bucket     *Tree   // 归属树
-	items      []*Item // 节点kv对
-	childNodes []*Node // 孩子节点
+	bucket *BTree // 归属树
+	// todo 新增 parent, 分类、合并、左旋、右旋都通过 parent 来
+	// todo 如果是递归合并、分裂之类的，依赖递归来做
+	items    []*Item // 节点kv对
+	children []*Node // 孩子节点
 }
 
-type Tree struct {
-	root     *Node
-	minItems int
-	maxItems int
+type BTree struct {
+	root *Node
+	min  int
+	max  int
 }
 
 func newItem(key string, value interface{}) *Item {
@@ -26,25 +28,25 @@ func newItem(key string, value interface{}) *Item {
 	}
 }
 
-func newTreeWithRoot(root *Node, minItems int) *Tree {
-	bucket := &Tree{
+func newTreeWithRoot(root *Node, min int) *BTree {
+	bucket := &BTree{
 		root: root,
 	}
 	bucket.root.bucket = bucket
-	bucket.minItems = minItems
-	bucket.maxItems = minItems * 2
+	bucket.min = min
+	bucket.max = min * 2
 	return bucket
 }
 
-func NewTree(minItems int) *Tree {
-	return newTreeWithRoot(NewEmptyNode(), minItems)
+func NewTree(min int) *BTree {
+	return newTreeWithRoot(NewEmptyNode(), min)
 }
 
 // Put adds a key to the tree. It finds the correct node and the insertion index and adds the item. When performing the
 // search, the ancestors are returned as well. This way we can iterate over them to check which nodes were modified and
 // rebalance by splitting them accordingly. If the root has too many items, then a new root of a new layer is
 // created and the created nodes from the split are added as children.
-func (b *Tree) Put(key string, value interface{}) {
+func (b *BTree) Put(key string, value interface{}) {
 	// Find the path to the node where the insertion should happen
 	i := newItem(key, value)
 	insertionIndex, nodeToInsertIn, ancestorsIndexes := b.findKey(i.key, false)
@@ -58,13 +60,13 @@ func (b *Tree) Put(key string, value interface{}) {
 		pnode := ancestors[i]
 		node := ancestors[i+1]
 		nodeIndex := ancestorsIndexes[i+1]
-		if node.isOverPopulated() {
+		if node.half() {
 			pnode.split(node, nodeIndex)
 		}
 	}
 
 	// Handle root
-	if b.root.isOverPopulated() {
+	if b.root.half() {
 		newRoot := NewNode(b, []*Item{}, []*Node{b.root})
 		newRoot.split(b.root, 0)
 		b.root = newRoot
@@ -76,7 +78,7 @@ func (b *Tree) Put(key string, value interface{}) {
 // nodes were modified and re-balance by rotating or merging the unbalanced nodes. Rotation is done first. If the
 // siblings don't have enough items, then merging occurs. If the root is without items after a split, then the root is
 // removed and the tree is one level shorter.
-func (b *Tree) Remove(key string) {
+func (b *BTree) Remove(key string) {
 	// Find the path to the node where the deletion should happen
 	removeItemIndex, nodeToRemoveFrom, ancestorsIndexes := b.findKey(key, true)
 
@@ -97,13 +99,13 @@ func (b *Tree) Remove(key string) {
 		}
 	}
 	// If the root has no items after re-balancing
-	if len(b.root.items) == 0 && len(b.root.childNodes) > 0 {
+	if len(b.root.items) == 0 && len(b.root.children) > 0 {
 		b.root = ancestors[1]
 	}
 }
 
 // Find Returns an item according based on the given key by performing a binary search.
-func (b *Tree) Find(key string) *Item {
+func (b *BTree) Find(key string) *Item {
 	index, containingNode, _ := b.findKey(key, true)
 	if index == -1 {
 		return nil
@@ -116,7 +118,7 @@ func (b *Tree) Find(key string) *Item {
 //of ancestors is used for re-balancing. It's also known as breadcrumbs.
 // When the item isn't found, if exact is true, then a falsey answer is returned. If exact is false, then the index
 // where the item should have been is returned (Used for insertion)
-func (b *Tree) findKey(key string, exact bool) (int, *Node, []int) {
+func (b *BTree) findKey(key string, exact bool) (int, *Node, []int) {
 	n := b.root
 
 	// Find the path to the node where the deletion should happen
@@ -132,7 +134,7 @@ func (b *Tree) findKey(key string, exact bool) (int, *Node, []int) {
 				}
 				return index, n, ancestorsIndexes
 			}
-			nextChild := n.childNodes[index]
+			nextChild := n.children[index]
 			ancestorsIndexes = append(ancestorsIndexes, index)
 			n = nextChild
 		}
@@ -147,11 +149,11 @@ func (b *Tree) findKey(key string, exact bool) (int, *Node, []int) {
 //  /     \     /   \
 // c       d   e     f
 // For [0,1,0] -> p,b,e
-func (b *Tree) getNodes(indexes []int) []*Node {
+func (b *BTree) getNodes(indexes []int) []*Node {
 	nodes := []*Node{b.root}
 	child := b.root
 	for i := 1; i < len(indexes); i++ {
-		child = child.childNodes[indexes[i]]
+		child = child.children[indexes[i]]
 		nodes = append(nodes, child)
 	}
 	return nodes
@@ -159,12 +161,12 @@ func (b *Tree) getNodes(indexes []int) []*Node {
 
 func NewEmptyNode() *Node {
 	return &Node{
-		items:      []*Item{},
-		childNodes: []*Node{},
+		items:    []*Item{},
+		children: []*Node{},
 	}
 }
 
-func NewNode(bucket *Tree, value []*Item, childNodes []*Node) *Node {
+func NewNode(bucket *BTree, value []*Item, childNodes []*Node) *Node {
 	return &Node{
 		bucket,
 		value,
@@ -181,17 +183,17 @@ func isFirst(index int) bool {
 }
 
 func (n *Node) isLeaf() bool {
-	return len(n.childNodes) == 0
+	return len(n.children) == 0
 }
 
-// check node if need to split
-func (n *Node) isOverPopulated() bool {
-	return len(n.items) > n.bucket.maxItems
+// check node need to split
+func (n *Node) half() bool {
+	return len(n.items) > n.bucket.max
 }
 
 // check node id need to merge
 func (n *Node) isUnderPopulated() bool {
-	return len(n.items) < n.bucket.minItems
+	return len(n.items) < n.bucket.min
 }
 
 // findKey iterates all the items and finds the key. If the key is found, then the item is returned. If the key isn't
@@ -226,12 +228,12 @@ func (n *Node) addItem(item *Item, insertionIndex int) int {
 // addChild adds a child at a given position. If the child is in the end, then the list is appended. Otherwise, the list
 // is shifted and the child is inserted.
 func (n *Node) addChild(node *Node, insertionIndex int) {
-	if len(n.childNodes) == insertionIndex { // nil or empty slice or after last element
-		n.childNodes = append(n.childNodes, node)
+	if len(n.children) == insertionIndex { // nil or empty slice or after last element
+		n.children = append(n.children, node)
 	}
 
-	n.childNodes = append(n.childNodes[:insertionIndex+1], n.childNodes[insertionIndex:]...)
-	n.childNodes[insertionIndex] = node
+	n.children = append(n.children[:insertionIndex+1], n.children[insertionIndex:]...)
+	n.children[insertionIndex] = node
 }
 
 // split re-balances the tree after adding. After insertion the modified node has to be checked to make sure it
@@ -245,25 +247,25 @@ func (n *Node) addChild(node *Node, insertionIndex int) {
 //   1,2                 4,5,6,7,8            1,2          4,5         7,8
 func (n *Node) split(modifiedNode *Node, insertionIndex int) {
 	i := 0
-	nodeSize := n.bucket.minItems
+	nodeSize := n.bucket.min
 
-	for modifiedNode.isOverPopulated() {
+	for modifiedNode.half() {
 		middleItem := modifiedNode.items[nodeSize]
 		var newNode *Node
 		if modifiedNode.isLeaf() {
 			newNode = NewNode(n.bucket, modifiedNode.items[nodeSize+1:], []*Node{})
 			modifiedNode.items = modifiedNode.items[:nodeSize]
 		} else {
-			newNode = NewNode(n.bucket, modifiedNode.items[nodeSize+1:], modifiedNode.childNodes[i+1:])
+			newNode = NewNode(n.bucket, modifiedNode.items[nodeSize+1:], modifiedNode.children[i+1:])
 			modifiedNode.items = modifiedNode.items[:nodeSize]
-			modifiedNode.childNodes = modifiedNode.childNodes[:nodeSize+1]
+			modifiedNode.children = modifiedNode.children[:nodeSize+1]
 		}
 		n.addItem(middleItem, insertionIndex)
-		if len(n.childNodes) == insertionIndex+1 { // If middle of list, then move items forward
-			n.childNodes = append(n.childNodes, newNode)
+		if len(n.children) == insertionIndex+1 { // If middle of list, then move items forward
+			n.children = append(n.children, newNode)
 		} else {
-			n.childNodes = append(n.childNodes[:insertionIndex+1], n.childNodes[insertionIndex:]...)
-			n.childNodes[insertionIndex+1] = newNode
+			n.children = append(n.children[:insertionIndex+1], n.children[insertionIndex:]...)
+			n.children[insertionIndex+1] = newNode
 		}
 
 		insertionIndex += 1
@@ -274,17 +276,17 @@ func (n *Node) split(modifiedNode *Node, insertionIndex int) {
 
 // rebalanceRemove re-balances the tree after a remove operation. This can be either by rotating to the right, to the
 // left or by merging. Firstly, the sibling nodes are checked to see if they have enough items for rebalancing
-// (>= minItems+1). If they don't have enough items, then merging with one of the sibling nodes occurs. This may leave
+// (>= min+1). If they don't have enough items, then merging with one of the sibling nodes occurs. This may leave
 // the parent unbalanced by having too little items so re-balancing has to be checked for all the ancestors.
 func (n *Node) rebalanceRemove(unbalancedNodeIndex int) {
 	pNode := n
-	unbalancedNode := pNode.childNodes[unbalancedNodeIndex]
+	unbalancedNode := pNode.children[unbalancedNodeIndex]
 
 	// Right rotate
 	var leftNode *Node
 	if unbalancedNodeIndex != 0 {
-		leftNode = pNode.childNodes[unbalancedNodeIndex-1]
-		if len(leftNode.items) > n.bucket.minItems {
+		leftNode = pNode.children[unbalancedNodeIndex-1]
+		if len(leftNode.items) > n.bucket.min {
 			rotateRight(leftNode, pNode, unbalancedNode, unbalancedNodeIndex)
 			return
 		}
@@ -292,9 +294,9 @@ func (n *Node) rebalanceRemove(unbalancedNodeIndex int) {
 
 	// Left Balance
 	var rightNode *Node
-	if unbalancedNodeIndex != len(pNode.childNodes)-1 {
-		rightNode = pNode.childNodes[unbalancedNodeIndex+1]
-		if len(rightNode.items) > n.bucket.minItems {
+	if unbalancedNodeIndex != len(pNode.children)-1 {
+		rightNode = pNode.children[unbalancedNodeIndex+1]
+		if len(rightNode.items) > n.bucket.min {
 			rotateLeft(unbalancedNode, pNode, rightNode, unbalancedNodeIndex)
 			return
 		}
@@ -319,10 +321,10 @@ func (n *Node) removeItemFromInternal(index int) []int {
 	affectedNodes := make([]int, 0)
 	affectedNodes = append(affectedNodes, index)
 
-	aNode := n.childNodes[index]
+	aNode := n.children[index]
 	for !aNode.isLeaf() {
-		traversingIndex := len(n.childNodes) - 1
-		aNode = n.childNodes[traversingIndex]
+		traversingIndex := len(n.children) - 1
+		aNode = n.children[traversingIndex]
 		affectedNodes = append(affectedNodes, traversingIndex)
 	}
 
@@ -355,9 +357,9 @@ func rotateRight(aNode, pNode, bNode *Node, bNodeIndex int) {
 
 	// If it's a inner leaf then move children as well.
 	if !aNode.isLeaf() {
-		childNodeToShift := aNode.childNodes[len(aNode.childNodes)-1]
-		aNode.childNodes = aNode.childNodes[:len(aNode.childNodes)-1]
-		bNode.childNodes = append([]*Node{childNodeToShift}, bNode.childNodes...)
+		childNodeToShift := aNode.children[len(aNode.children)-1]
+		aNode.children = aNode.children[:len(aNode.children)-1]
+		bNode.children = append([]*Node{childNodeToShift}, bNode.children...)
 	}
 }
 
@@ -385,14 +387,14 @@ func rotateLeft(aNode, pNode, bNode *Node, bNodeIndex int) {
 
 	// If it's a inner leaf then move children as well.
 	if !bNode.isLeaf() {
-		childNodeToShift := bNode.childNodes[0]
-		bNode.childNodes = bNode.childNodes[1:]
-		aNode.childNodes = append(aNode.childNodes, childNodeToShift)
+		childNodeToShift := bNode.children[0]
+		bNode.children = bNode.children[1:]
+		aNode.children = append(aNode.children, childNodeToShift)
 	}
 }
 
 func merge(pNode *Node, unbalancedNodeIndex int) {
-	unbalancedNode := pNode.childNodes[unbalancedNodeIndex]
+	unbalancedNode := pNode.children[unbalancedNodeIndex]
 	if unbalancedNodeIndex == 0 {
 		// 	               p                                     p
 		//                    2,5                                     5
@@ -400,7 +402,7 @@ func merge(pNode *Node, unbalancedNodeIndex int) {
 		//  a(unbalanced)   b           c                     a            c
 		//   1             3,4          6,7                 1,2,3,4        6,7
 		aNode := unbalancedNode
-		bNode := pNode.childNodes[unbalancedNodeIndex+1]
+		bNode := pNode.children[unbalancedNodeIndex+1]
 
 		// Take the item from the parent, remove it and add it to the unbalanced node
 		pNodeItem := pNode.items[0]
@@ -409,9 +411,9 @@ func merge(pNode *Node, unbalancedNodeIndex int) {
 
 		//merge the bNode to aNode and remove it. Handle its child nodes as well.
 		aNode.items = append(aNode.items, bNode.items...)
-		pNode.childNodes = append(pNode.childNodes[0:1], pNode.childNodes[2:]...)
+		pNode.children = append(pNode.children[0:1], pNode.children[2:]...)
 		if !bNode.isLeaf() {
-			aNode.childNodes = append(aNode.childNodes, bNode.childNodes...)
+			aNode.children = append(aNode.children, bNode.children...)
 		}
 	} else {
 		// 	               p                                     p
@@ -420,7 +422,7 @@ func merge(pNode *Node, unbalancedNodeIndex int) {
 		//           a   b(unbalanced)   c                    a            c
 		//          1,2         4        6,7                 1,2,3,4         6,7
 		bNode := unbalancedNode
-		aNode := pNode.childNodes[unbalancedNodeIndex-1]
+		aNode := pNode.children[unbalancedNodeIndex-1]
 
 		// Take the item from the parent, remove it and add it to the unbalanced node
 		pNodeItem := pNode.items[unbalancedNodeIndex-1]
@@ -428,9 +430,9 @@ func merge(pNode *Node, unbalancedNodeIndex int) {
 		aNode.items = append(aNode.items, pNodeItem)
 
 		aNode.items = append(aNode.items, bNode.items...)
-		pNode.childNodes = append(pNode.childNodes[:unbalancedNodeIndex], pNode.childNodes[unbalancedNodeIndex+1:]...)
+		pNode.children = append(pNode.children[:unbalancedNodeIndex], pNode.children[unbalancedNodeIndex+1:]...)
 		if !aNode.isLeaf() {
-			bNode.childNodes = append(aNode.childNodes, bNode.childNodes...)
+			bNode.children = append(aNode.children, bNode.children...)
 		}
 	}
 }

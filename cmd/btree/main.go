@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	minimumItemsInNode := btree.DefaultMinItems
+	minimumItemsInNode := btree.DefaultMin
 	tree := btree.NewTree(minimumItemsInNode)
 	value := "0"
 	tree.Put(value, value)
